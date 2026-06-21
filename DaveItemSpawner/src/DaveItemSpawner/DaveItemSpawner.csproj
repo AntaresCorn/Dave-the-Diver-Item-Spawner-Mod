@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>DaveItemSpawner</AssemblyName>
+    <RootNamespace>DaveItemSpawner</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <GameRoot Condition="'$(GameRoot)' == '' and '$(DaveTheDiverRoot)' != ''">$(DaveTheDiverRoot)</GameRoot>
+    <GameRoot Condition="'$(GameRoot)' == ''">E:\SteamLibrary\steamapps\common\Dave the Diver</GameRoot>
+    <BepInExRoot>$(GameRoot)\BepInEx</BepInExRoot>
+    <BepInExCoreRoot>$(BepInExRoot)\core</BepInExCoreRoot>
+    <InteropRoot>$(BepInExRoot)\interop</InteropRoot>
+    <GameDotnetRoot>$(GameRoot)\dotnet</GameDotnetRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Private.CoreLib" Private="false" HintPath="$(GameDotnetRoot)\System.Private.CoreLib.dll" />
+    <Reference Include="System.Runtime" Private="false" HintPath="$(GameDotnetRoot)\System.Runtime.dll" />
+    <Reference Include="System.Collections" Private="false" HintPath="$(GameDotnetRoot)\System.Collections.dll" />
+    <Reference Include="System.Linq" Private="false" HintPath="$(GameDotnetRoot)\System.Linq.dll" />
+    <Reference Include="netstandard" Private="false" HintPath="$(GameDotnetRoot)\netstandard.dll" />
+    <Reference Include="BepInEx.Core" Private="false" HintPath="$(BepInExCoreRoot)\BepInEx.Core.dll" />
+    <Reference Include="BepInEx.Unity.IL2CPP" Private="false" HintPath="$(BepInExCoreRoot)\BepInEx.Unity.IL2CPP.dll" />
+    <Reference Include="Il2CppInterop.Runtime" Private="false" HintPath="$(BepInExCoreRoot)\Il2CppInterop.Runtime.dll" />
+    <Reference Include="Il2Cppmscorlib" Private="false" HintPath="$(InteropRoot)\Il2Cppmscorlib.dll" />
+    <Reference Include="Assembly-CSharp" Private="false" HintPath="$(InteropRoot)\Assembly-CSharp.dll" />
+    <Reference Include="UnityEngine.CoreModule" Private="false" HintPath="$(InteropRoot)\UnityEngine.CoreModule.dll" />
+    <Reference Include="UnityEngine.IMGUIModule" Private="false" HintPath="$(InteropRoot)\UnityEngine.IMGUIModule.dll" />
+    <Reference Include="UnityEngine.InputLegacyModule" Private="false" HintPath="$(InteropRoot)\UnityEngine.InputLegacyModule.dll" />
+  </ItemGroup>
+</Project>

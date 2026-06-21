@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <UseAppHost>false</UseAppHost>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <NoWarn>$(NoWarn);NETSDK1138;CA1416</NoWarn>
+    <GameRoot Condition="'$(GameRoot)' == '' and '$(DaveTheDiverRoot)' != ''">$(DaveTheDiverRoot)</GameRoot>
+    <GameRoot Condition="'$(GameRoot)' == ''">E:\SteamLibrary\steamapps\common\Dave the Diver</GameRoot>
+    <GameDotnetRoot>$(GameRoot)\dotnet</GameDotnetRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DaveItemSpawner\DaveItemSpawner.csproj" />
+  </ItemGroup>
+  <!-- Offline CI here lacks NuGet/.NET 6 reference packs, so compile and run against the game's bundled runtime assemblies. -->
+  <ItemGroup>
+    <Reference Include="System.Private.CoreLib" Private="false" HintPath="$(GameDotnetRoot)\System.Private.CoreLib.dll" />
+    <Reference Include="System.Runtime" Private="false" HintPath="$(GameDotnetRoot)\System.Runtime.dll" />
+    <Reference Include="System.Collections" Private="false" HintPath="$(GameDotnetRoot)\System.Collections.dll" />
+    <Reference Include="System.Console" Private="false" HintPath="$(GameDotnetRoot)\System.Console.dll" />
+    <Reference Include="System.Linq" Private="false" HintPath="$(GameDotnetRoot)\System.Linq.dll" />
+    <Reference Include="System.Net.Http" Private="false" HintPath="$(GameDotnetRoot)\System.Net.Http.dll" />
+    <Reference Include="System.Threading" Private="false" HintPath="$(GameDotnetRoot)\System.Threading.dll" />
+    <Reference Include="System.Threading.Tasks" Private="false" HintPath="$(GameDotnetRoot)\System.Threading.Tasks.dll" />
+    <Reference Include="netstandard" Private="false" HintPath="$(GameDotnetRoot)\netstandard.dll" />
+  </ItemGroup>
+  <!-- The SDK cannot infer a framework-dependent runtimeconfig from those manual framework references. -->
+  <Target Name="WriteFrameworkDependentRuntimeConfig" AfterTargets="CopyFilesToOutputDirectory">
+    <ItemGroup>
+      <RuntimeConfigLine Include="{" />
+      <RuntimeConfigLine Include="  &quot;runtimeOptions&quot;: {" />
+      <RuntimeConfigLine Include="    &quot;tfm&quot;: &quot;net6.0&quot;," />
+    <RuntimeConfigLine Include="    &quot;framework&quot;: {" />
+    <RuntimeConfigLine Include="      &quot;name&quot;: &quot;Microsoft.NETCore.App&quot;," />
+    <RuntimeConfigLine Include="      &quot;version&quot;: &quot;6.0.0&quot;" />
+    <RuntimeConfigLine Include="    }" />
+    <RuntimeConfigLine Include="  }" />
+    <RuntimeConfigLine Include="}" />
+  </ItemGroup>
+  <WriteLinesToFile
+      File="$(TargetDir)$(AssemblyName).runtimeconfig.json"
+      Lines="@(RuntimeConfigLine)"
+      Overwrite="true" />
+  </Target>
+</Project>
