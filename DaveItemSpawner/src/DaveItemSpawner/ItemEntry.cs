@@ -3,7 +3,8 @@ namespace DaveItemSpawner;
 public enum ItemAddRoute
 {
     Inventory,
-    Ingredient
+    Ingredient,
+    JungleInventory
 }
 
 public sealed record ItemEntry(

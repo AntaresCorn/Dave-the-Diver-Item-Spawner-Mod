@@ -1,5 +1,4 @@
 using BepInEx.Logging;
-using DR.Save;
 using SushiBar;
 
 namespace DaveItemSpawner;
@@ -24,21 +23,26 @@ public sealed class GameItemAdder
 
         try
         {
-            if (!SaveSystem.hasInstance)
+            if (!InteropAccess.TryGetSaveSystem(out var saveSystem) || saveSystem is null)
             {
                 return new AddItemResult(false, "Save system is not ready.");
             }
 
-            var saveSystem = SaveSystem.Instance;
-            var saveData = SaveSystem.GetGameSave();
+            var saveData = InteropAccess.GetGameSave();
             if (saveData is null)
             {
                 return new AddItemResult(false, "Game save is not loaded.");
             }
 
-            return entry.Route == ItemAddRoute.Ingredient
-                ? AddIngredient(saveSystem, saveData, entry, amount)
-                : AddInventoryItem(saveSystem, saveData, entry, amount);
+            var route = ResolveRouteForCurrentScene(entry);
+            _log.LogInfo($"Routing TID {entry.Tid} to {route} in scene '{InteropAccess.GetActiveSceneName()}'.");
+
+            return route switch
+            {
+                ItemAddRoute.Ingredient => AddIngredient(saveSystem, saveData, entry, amount),
+                ItemAddRoute.JungleInventory => AddJungleInventoryItem(saveSystem, saveData, entry, amount),
+                _ => AddInventoryItem(saveSystem, saveData, entry, amount),
+            };
         }
         catch (Exception ex)
         {
@@ -47,12 +51,24 @@ public sealed class GameItemAdder
         }
     }
 
-    private AddItemResult AddInventoryItem(SaveSystem saveSystem, SaveData saveData, ItemEntry entry, int amount)
+    private static ItemAddRoute ResolveRouteForCurrentScene(ItemEntry entry)
     {
-        saveData.AddInventoryItemSaveData(entry.Tid, amount, null);
-        saveData.UpdateInventoryItemSave();
+        // Jungle scenes always target jungle inventory, regardless of catalog guess.
+        if (InteropAccess.IsJungleSceneActive())
+        {
+            return ItemAddRoute.JungleInventory;
+        }
 
-        if (!saveSystem.SaveGameData())
+        return entry.Route;
+    }
+
+    private AddItemResult AddInventoryItem(object saveSystem, SaveData saveData, ItemEntry entry, int amount)
+    {
+        // Apply mutation then flush save data so the item persists after scene reload.
+        InteropAccess.AddInventoryItemSaveData(saveData, entry.Tid, amount);
+        InteropAccess.UpdateInventoryItemSave(saveData);
+
+        if (!InteropAccess.SaveGameData(saveSystem))
         {
             return new AddItemResult(false, $"Failed to save inventory after adding {amount} x {Describe(entry)}.");
         }
@@ -62,9 +78,31 @@ public sealed class GameItemAdder
         return new AddItemResult(true, message);
     }
 
-    private AddItemResult AddIngredient(SaveSystem saveSystem, SaveData saveData, ItemEntry entry, int amount)
+    private AddItemResult AddJungleInventoryItem(object saveSystem, SaveData saveData, ItemEntry entry, int amount)
     {
-        if (!IngredientsStorage.hasInstance)
+        var jungleSave = InteropAccess.GetJungleSave(saveData);
+        if (jungleSave is null)
+        {
+            return new AddItemResult(false, "Jungle save data is not ready.");
+        }
+
+        InteropAccess.AddJungleVilItemSaveData(jungleSave, entry.Tid, amount);
+        InteropAccess.UpdateJungleVilItemSave(jungleSave);
+        InteropAccess.UpdateJungleSave(jungleSave);
+
+        if (!InteropAccess.SaveGameData(saveSystem))
+        {
+            return new AddItemResult(false, $"Failed to save jungle inventory after adding {amount} x {Describe(entry)}.");
+        }
+
+        var message = $"Added {amount} x {Describe(entry)} to jungle inventory.";
+        _log.LogInfo(message);
+        return new AddItemResult(true, message);
+    }
+
+    private AddItemResult AddIngredient(object saveSystem, SaveData saveData, ItemEntry entry, int amount)
+    {
+        if (!InteropAccess.TryGetIngredientsStorage(out var ingredientsStorage) || ingredientsStorage is null)
         {
             return new AddItemResult(false, "Ingredients storage is not ready.");
         }
@@ -75,10 +113,10 @@ public sealed class GameItemAdder
             return new AddItemResult(false, $"Could not map TID {entry.Tid} to an ingredient.");
         }
 
-        IngredientsStorage.Instance.AddIngredients(ingredientTid, amount, Place.Main);
-        saveData.UpdateIngredientsSave();
+        InteropAccess.AddIngredients(ingredientsStorage, ingredientTid, amount, Place.Main);
+        InteropAccess.UpdateIngredientsSave(saveData);
 
-        if (!saveSystem.SaveGameData())
+        if (!InteropAccess.SaveGameData(saveSystem))
         {
             return new AddItemResult(false, $"Failed to save ingredients after adding {amount} x {ingredientTid}.");
         }
@@ -90,13 +128,11 @@ public sealed class GameItemAdder
 
     private static int ResolveIngredientTid(ItemEntry entry)
     {
-        if (DataManager.hasInstance)
+        // Some items map to a distinct ingredient id through DataManager.
+        var mapped = InteropAccess.GetIngredientTidFromItemTid(entry.Tid);
+        if (mapped > 0)
         {
-            var mapped = DataManager.GetIngredientTIDFromItemTID(entry.Tid);
-            if (mapped > 0)
-            {
-                return mapped;
-            }
+            return mapped;
         }
 
         if (entry.ItemType == (int)ItemType.Ingredient ||

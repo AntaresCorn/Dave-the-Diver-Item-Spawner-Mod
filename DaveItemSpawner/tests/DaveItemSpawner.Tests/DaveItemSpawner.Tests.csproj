@@ -6,14 +6,22 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
     <UseAppHost>false</UseAppHost>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <NoWarn>$(NoWarn);NETSDK1138;CA1416</NoWarn>
     <GameRoot Condition="'$(GameRoot)' == '' and '$(DaveTheDiverRoot)' != ''">$(DaveTheDiverRoot)</GameRoot>
+    <GameRoot Condition="'$(GameRoot)' == '' and Exists('D:\SteamLibrary\steamapps\common\Dave the Diver')">D:\SteamLibrary\steamapps\common\Dave the Diver</GameRoot>
+    <GameRoot Condition="'$(GameRoot)' == '' and Exists('C:\Program Files (x86)\Steam\steamapps\common\Dave the Diver')">C:\Program Files (x86)\Steam\steamapps\common\Dave the Diver</GameRoot>
     <GameRoot Condition="'$(GameRoot)' == ''">E:\SteamLibrary\steamapps\common\Dave the Diver</GameRoot>
     <GameDotnetRoot>$(GameRoot)\dotnet</GameDotnetRoot>
   </PropertyGroup>
+  <Target Name="ValidateGameInstall" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(GameRoot)' == ''" Text="GameRoot is empty. Set -p:GameRoot=&quot;D:\SteamLibrary\steamapps\common\Dave the Diver&quot; (or use -p:DaveTheDiverRoot=...)." />
+    <Error Condition="!Exists('$(GameRoot)')" Text="GameRoot not found: $(GameRoot). Set -p:GameRoot=&quot;D:\SteamLibrary\steamapps\common\Dave the Diver&quot; (or use -p:DaveTheDiverRoot=...)." />
+    <Error Condition="!Exists('$(GameDotnetRoot)\System.Private.CoreLib.dll')" Text="Missing $(GameDotnetRoot)\System.Private.CoreLib.dll. Ensure Dave the Diver is installed and GameRoot points to the game folder." />
+  </Target>
   <ItemGroup>
     <ProjectReference Include="..\..\src\DaveItemSpawner\DaveItemSpawner.csproj" />
   </ItemGroup>

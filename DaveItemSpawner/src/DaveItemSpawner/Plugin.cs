@@ -18,6 +18,7 @@ public sealed class Plugin : BasePlugin
     private PluginGui? _gui;
     private bool _visible;
 
+    // Initializes config and wires the in-game UI host component.
     public override void Load()
     {
         _toggleKey = Config.Bind("UI", "ToggleKey", KeyCode.F8, "Key used to show or hide the item spawner.");
@@ -49,6 +50,7 @@ public sealed class Plugin : BasePlugin
         private Plugin? _plugin;
         private ManualLogSource? _log;
 
+        // Unity-managed bridge so the plugin can receive Update/OnGUI callbacks.
         public void Init(Plugin plugin)
         {
             _plugin = plugin;
@@ -67,6 +69,7 @@ public sealed class Plugin : BasePlugin
         {
             try
             {
+                // IMGUI exceptions can break rendering for the frame, so guard draw calls.
                 _plugin?.Draw();
             }
             catch (Exception ex)

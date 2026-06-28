@@ -18,6 +18,7 @@ public static class ItemSearch
 
         if (trimmed.Length == 0)
         {
+            // Default listing is stable by TID for predictable paging/selection.
             return entries
                 .OrderBy(e => e.Tid)
                 .Take(safeMax)
@@ -26,6 +27,7 @@ public static class ItemSearch
 
         if (TryParseTid(trimmed, out var tid))
         {
+            // Numeric queries prioritize exact TID match, then partial-id matches.
             return entries
                 .Where(e => e.Tid == tid || e.Tid.ToString().Contains(trimmed, StringComparison.Ordinal))
                 .OrderBy(e => e.Tid == tid ? 0 : 1)

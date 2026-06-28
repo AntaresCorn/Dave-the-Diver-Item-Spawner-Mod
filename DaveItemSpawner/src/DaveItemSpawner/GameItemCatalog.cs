@@ -17,6 +17,7 @@ public sealed class GameItemCatalog
 
     public System.Collections.Generic.IReadOnlyList<ItemEntry> Entries => _entries;
 
+    // Builds the in-memory item catalog once the game's data manager is ready.
     public bool TryRefresh()
     {
         if (_loaded)
@@ -24,16 +25,14 @@ public sealed class GameItemCatalog
             return true;
         }
 
-        DataManager? dataManager;
+        object? dataManager;
         try
         {
-            if (!DataManager.hasInstance)
+            if (!InteropAccess.TryGetDataManager(out dataManager))
             {
                 _log.LogDebug("DataManager unavailable: no instance.");
                 return false;
             }
-
-            dataManager = DataManager.Instance;
         }
         catch (Exception ex)
         {
@@ -41,13 +40,14 @@ public sealed class GameItemCatalog
             return false;
         }
 
-        if (dataManager is null || !dataManager.IsGameDataLoaded)
+        if (dataManager is null || !InteropAccess.IsGameDataLoaded(dataManager))
         {
             _log.LogDebug("DataManager unavailable: game data is not loaded.");
             return false;
         }
 
         var rows = new System.Collections.Generic.Dictionary<int, ItemEntry>();
+        // Merge both sources; integrated rows usually carry richer metadata.
         AddIntegratedItems(dataManager, rows);
         AddItemBaseRows(dataManager, rows);
 
@@ -65,16 +65,19 @@ public sealed class GameItemCatalog
 
     public ItemEntry CreateFallback(int tid)
     {
-        var route = GuessRouteFromItem(DataManager.hasInstance ? DataManager.Instance : null, tid);
+        // Used when a TID is valid for add operations but absent from current catalog snapshot.
+        var route = InteropAccess.TryGetDataManager(out var dataManager)
+            ? GuessRouteFromItem(dataManager, tid)
+            : ItemAddRoute.Inventory;
         return new ItemEntry(tid, $"TID {tid}", string.Empty, -1, route);
     }
 
-    private void AddIntegratedItems(DataManager dataManager, System.Collections.Generic.Dictionary<int, ItemEntry> rows)
+    private void AddIntegratedItems(object dataManager, System.Collections.Generic.Dictionary<int, ItemEntry> rows)
     {
         object? dict;
         try
         {
-            dict = dataManager.IntegratedItemDic;
+            dict = InteropAccess.GetIntegratedItemDictionary(dataManager);
         }
         catch (Exception ex)
         {
@@ -91,22 +94,23 @@ public sealed class GameItemCatalog
         {
             foreach (var value in EnumerateMember(dict, "Values"))
             {
-                var item = value as IntegratedItem;
-                if (item is null)
+                if (value is null)
                 {
                     continue;
                 }
 
-                var tid = item.TID;
+                var tid = InteropAccess.GetIntProperty(value, "TID");
                 if (tid <= 0 || rows.ContainsKey(tid))
                 {
                     continue;
                 }
 
-                var textId = item.ItemTextID ?? string.Empty;
-                var label = BuildLabel(dataManager, tid, textId, item.SpawnObject ?? string.Empty);
+                var textId = InteropAccess.GetStringProperty(value, "ItemTextID") ?? string.Empty;
+                var spawnObject = InteropAccess.GetStringProperty(value, "SpawnObject") ?? string.Empty;
+                var label = BuildLabel(dataManager, tid, textId, spawnObject);
                 var route = GuessRouteFromItem(dataManager, tid);
-                rows[tid] = new ItemEntry(tid, label, textId, item.IntegratedType, route);
+                var itemType = InteropAccess.GetIntProperty(value, "IntegratedType");
+                rows[tid] = new ItemEntry(tid, label, textId, itemType, route);
             }
         }
         catch (Exception ex)
@@ -115,12 +119,12 @@ public sealed class GameItemCatalog
         }
     }
 
-    private void AddItemBaseRows(DataManager dataManager, System.Collections.Generic.Dictionary<int, ItemEntry> rows)
+    private void AddItemBaseRows(object dataManager, System.Collections.Generic.Dictionary<int, ItemEntry> rows)
     {
         object? dict;
         try
         {
-            dict = dataManager.ItemBaseDataDic;
+            dict = InteropAccess.GetItemBaseDataDictionary(dataManager);
         }
         catch (Exception ex)
         {
@@ -137,22 +141,22 @@ public sealed class GameItemCatalog
         {
             foreach (var value in EnumerateMember(dict, "Values"))
             {
-                var item = value as DR.IItemBase;
-                if (item is null)
+                if (value is null)
                 {
                     continue;
                 }
 
-                var tid = item.TID;
+                var tid = InteropAccess.GetIntProperty(value, "TID");
                 if (tid <= 0 || rows.ContainsKey(tid))
                 {
                     continue;
                 }
 
-                var textId = item.ItemTextID ?? string.Empty;
+                var textId = InteropAccess.GetStringProperty(value, "ItemTextID") ?? string.Empty;
                 var label = BuildLabel(dataManager, tid, textId, string.Empty);
                 var route = GuessRouteFromItem(dataManager, tid);
-                rows[tid] = new ItemEntry(tid, label, textId, item.ItemType, route);
+                var itemType = InteropAccess.GetIntProperty(value, "ItemType");
+                rows[tid] = new ItemEntry(tid, label, textId, itemType, route);
             }
         }
         catch (Exception ex)
@@ -161,15 +165,17 @@ public sealed class GameItemCatalog
         }
     }
 
-    public ItemAddRoute GuessRouteFromItem(DataManager? dataManager, int tid)
+    public ItemAddRoute GuessRouteFromItem(object? dataManager, int tid)
     {
         if (dataManager is not null)
         {
             try
             {
-                var item = dataManager.GetItems(tid);
-                var ingredientTid = DataManager.GetIngredientTIDFromItemTID(tid);
-                return ItemRouting.ResolveRoute(item?.ItemType ?? 0, ingredientTid);
+                // Route depends on both item type and ingredient remap table.
+                var item = InteropAccess.GetItemByTid(dataManager, tid);
+                var itemType = item is null ? 0 : InteropAccess.GetIntProperty(item, "ItemType");
+                var ingredientTid = InteropAccess.GetIngredientTidFromItemTid(tid);
+                return ItemRouting.ResolveRoute(itemType, ingredientTid);
             }
             catch (Exception ex)
             {
@@ -181,13 +187,14 @@ public sealed class GameItemCatalog
         return ItemAddRoute.Inventory;
     }
 
-    private static string BuildLabel(DataManager dataManager, int tid, string textId, string spawnObject)
+    private static string BuildLabel(object dataManager, int tid, string textId, string spawnObject)
     {
         if (!string.IsNullOrWhiteSpace(textId))
         {
             try
             {
-                var localized = dataManager.GetText(textId);
+                // Prefer localized text so users can search by in-game display names.
+                var localized = InteropAccess.GetLocalizedText(dataManager, textId);
                 if (!string.IsNullOrWhiteSpace(localized) &&
                     !string.Equals(localized, textId, StringComparison.Ordinal))
                 {

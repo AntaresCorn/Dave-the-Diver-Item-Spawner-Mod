@@ -4,12 +4,15 @@ namespace DaveItemSpawner.Tests;
 
 public static class Program
 {
+    private const int JungleCommonItemType = 41;
+    private const int HousingFurnitureItemType = 70;
+
     private static readonly ItemEntry[] Entries =
-    [
+    {
         new(1001, "Salt", "ITEM_SALT", 4, ItemAddRoute.Ingredient),
         new(2002, "Copper Ore", "ITEM_COPPER_ORE", 2, ItemAddRoute.Inventory),
         new(3003, "Tranq Gun", "ITEM_TRANQ_GUN", 0, ItemAddRoute.Inventory),
-    ];
+    };
 
     public static int Main()
     {
@@ -35,6 +38,8 @@ public static class Program
         EmptyQueryReturnsEntriesOrderedByTid();
         ResolveRouteTreatsIngredientTypeAsIngredient();
         ResolveRouteTreatsIngredientMappingAsIngredient();
+        ResolveRouteTreatsJungleCommonAsJungleInventory();
+        ResolveRouteTreatsHousingItemAsJungleInventory();
         ResolveRouteTreatsOtherItemsAsInventory();
 
         Console.WriteLine("All item helper tests passed.");
@@ -164,6 +169,18 @@ public static class Program
     {
         Require(ItemRouting.ResolveRoute(0, 1234) == ItemAddRoute.Ingredient,
             "Expected ingredient mapping to route to ingredients.");
+    }
+
+    private static void ResolveRouteTreatsJungleCommonAsJungleInventory()
+    {
+        Require(ItemRouting.ResolveRoute(JungleCommonItemType, 0) == ItemAddRoute.JungleInventory,
+            "Expected jungle common items to route to jungle inventory.");
+    }
+
+    private static void ResolveRouteTreatsHousingItemAsJungleInventory()
+    {
+        Require(ItemRouting.ResolveRoute(HousingFurnitureItemType, 0) == ItemAddRoute.JungleInventory,
+            "Expected housing items to route to jungle inventory.");
     }
 
     private static void ResolveRouteTreatsOtherItemsAsInventory()
