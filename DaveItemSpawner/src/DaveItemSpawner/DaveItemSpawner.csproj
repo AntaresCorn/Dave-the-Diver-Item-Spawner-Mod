@@ -39,5 +39,6 @@
     <Reference Include="UnityEngine.CoreModule" Private="false" HintPath="$(InteropRoot)\UnityEngine.CoreModule.dll" />
     <Reference Include="UnityEngine.IMGUIModule" Private="false" HintPath="$(InteropRoot)\UnityEngine.IMGUIModule.dll" />
     <Reference Include="UnityEngine.InputLegacyModule" Private="false" HintPath="$(InteropRoot)\UnityEngine.InputLegacyModule.dll" />
+    <Reference Include="InputSystemWrapper" Private="false" HintPath="$(InteropRoot)\InputSystemWrapper.dll" />
   </ItemGroup>
 </Project>

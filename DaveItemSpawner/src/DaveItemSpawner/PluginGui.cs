@@ -10,21 +10,24 @@ public sealed class PluginGui
     private const float BaseWindowWidth = 1100f;
     private const float BaseWindowHeight = 820f;
     private const float BaseResultsHeight = 560f;
+    private const float WindowPadding = 16f;
 
     private readonly GameItemCatalog _catalog;
     private readonly GameItemAdder _adder;
     private readonly int _maxResults;
+    private readonly Func<float> _getWindowOpacity;
     private Vector2 _scroll;
     private string _query = string.Empty;
     private string _amountText = "1";
     private string _status = "Ready.";
     private ItemEntry? _selected;
 
-    public PluginGui(GameItemCatalog catalog, GameItemAdder adder, int maxResults)
+    public PluginGui(GameItemCatalog catalog, GameItemAdder adder, int maxResults, Func<float> getWindowOpacity)
     {
         _catalog = catalog;
         _adder = adder;
         _maxResults = Math.Clamp(maxResults, 1, 500);
+        _getWindowOpacity = getWindowOpacity;
     }
 
     public void Draw()
@@ -33,13 +36,34 @@ public sealed class PluginGui
         var scale = GetUiScale();
         var windowRect = GetWindowRect(scale);
         var previousMatrix = GUI.matrix;
+        var previousColor = GUI.color;
+        var opacity = Mathf.Clamp(_getWindowOpacity(), 0.1f, 1f);
         GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
 
-        GUILayout.BeginArea(windowRect, GUI.skin.window);
-        DrawPanel();
-        GUILayout.EndArea();
+        try
+        {
+            GUI.color = new Color(0.08f, 0.08f, 0.08f, opacity);
+            GUI.DrawTexture(windowRect, Texture2D.whiteTexture);
+            GUI.color = previousColor;
 
-        GUI.matrix = previousMatrix;
+            GUILayout.BeginArea(GetContentRect(windowRect));
+            DrawPanel();
+            GUILayout.EndArea();
+        }
+        finally
+        {
+            GUI.color = previousColor;
+            GUI.matrix = previousMatrix;
+        }
+    }
+
+    private static Rect GetContentRect(Rect windowRect)
+    {
+        return new Rect(
+            windowRect.x + WindowPadding,
+            windowRect.y + WindowPadding,
+            windowRect.width - (WindowPadding * 2f),
+            windowRect.height - (WindowPadding * 2f));
     }
 
     private void DrawPanel()
